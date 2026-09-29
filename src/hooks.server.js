@@ -21,7 +21,5 @@ export const handle = async ({ event, resolve }) => {
 	event.locals.session = session;
 	event.locals.user = user;
 
-	event.locals.calendar = '';
-
 	return resolve(event);
 };

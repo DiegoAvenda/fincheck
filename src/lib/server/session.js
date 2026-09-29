@@ -1,9 +1,8 @@
 import { getDb } from '$lib/server/db.js';
-import { encodeBase32LowerCaseNoPadding, encodeHexLowerCase } from '@oslojs/encoding';
-import { sha256 } from '@oslojs/crypto/sha2';
+import { encodeBase32LowerCaseNoPadding, encodeHexLowerCase, sha256 } from '$lib/server/crypto.js';
 
 export async function validateSessionToken(token) {
-	const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
+	const sessionId = encodeHexLowerCase(await sha256(token));
 
 	try {
 		const db = await getDb();
@@ -20,19 +19,17 @@ export async function validateSessionToken(token) {
 			await sessions.deleteOne({ id: sessionId });
 			return { session: null, user: null };
 		}
+
+		// Renovar sesión si está cerca de expirar
 		if (Date.now() >= session.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15) {
 			session.expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-			const filter = { id: session.id };
-			const updateDoc = {
-				$set: {
-					expiresAt: session.expiresAt
-				}
-			};
-			await sessions.updateOne(filter, updateDoc);
+			await sessions.updateOne({ id: sessionId }, { $set: { expiresAt: session.expiresAt } });
 		}
+
 		return { session, user };
 	} catch (error) {
 		console.log(error);
+		return { session: null, user: null };
 	}
 }
 
@@ -44,12 +41,13 @@ export function generateSessionToken() {
 }
 
 export async function createSession(token, userId) {
-	const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
+	const sessionId = encodeHexLowerCase(await sha256(token));
 	const session = {
 		id: sessionId,
 		userId,
 		expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30)
 	};
+
 	try {
 		const db = await getDb();
 		const sessions = db.collection('sessions');
@@ -57,6 +55,7 @@ export async function createSession(token, userId) {
 		return session;
 	} catch (error) {
 		console.log(error);
+		return null;
 	}
 }
 
@@ -80,10 +79,5 @@ export function setSessionTokenCookie(event, token, expiresAt) {
 }
 
 export function deleteSessionTokenCookie(event) {
-	event.cookies.set('session', '', {
-		httpOnly: true,
-		sameSite: 'lax',
-		maxAge: 0,
-		path: '/'
-	});
+	event.cookies.delete('session', { path: '/' });
 }

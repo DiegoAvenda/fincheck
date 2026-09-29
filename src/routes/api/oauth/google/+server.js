@@ -1,5 +1,5 @@
-import { generateState, generateCodeVerifier } from 'arctic';
-import { google } from '$lib/server/google-oauth';
+import { generateState, generateCodeVerifier } from '$lib/server/crypto';
+import { google } from '$lib/server/google-config';
 
 export async function GET(event) {
 	const state = generateState();
