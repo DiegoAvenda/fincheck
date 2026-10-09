@@ -1,17 +1,26 @@
 import { MongoClient } from 'mongodb';
-import { MONGODB_URI, MONGODB_DATABASE } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-function crearConexion() {
-	const client = new MongoClient(MONGODB_URI);
-	return client.connect();
-}
+let _clientPromise = null;
 
-// Evita abrir una conexión nueva en cada recarga durante desarrollo
-if (!globalThis._mongoClientPromise) {
-	globalThis._mongoClientPromise = crearConexion();
+function getClientPromise() {
+	if (_clientPromise) return _clientPromise;
+
+	const uri = env.MONGODB_URI;
+	if (!uri) {
+		throw new Error(
+			'MONGODB_URI is not defined. Create a .env file (see .env.example) or set the environment variable.'
+		);
+	}
+
+	const client = new MongoClient(uri);
+	_clientPromise = client.connect();
+	return _clientPromise;
 }
 
 export async function getDb() {
-	const client = await globalThis._mongoClientPromise;
-	return client.db(MONGODB_DATABASE);
+	const client = await getClientPromise();
+	const dbName = env.MONGODB_DATABASE ?? 'fincheck';
+	return client.db(dbName);
 }
+

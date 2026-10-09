@@ -2,7 +2,7 @@ import { generateSessionToken, createSession, setSessionTokenCookie } from '$lib
 import { GoogleOAuth } from '$lib/server/google-oauth';
 import { decodeIdToken } from '$lib/server/google-oauth';
 import { getUserFromGoogleId, createUser } from '$lib/server/user.js';
-import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { dev } from '$app/environment';
 
 export async function GET(event) {
@@ -28,7 +28,14 @@ export async function GET(event) {
 		? 'http://localhost:5173/api/oauth/google/callback'
 		: `${event.url.origin}/api/oauth/google/callback`;
 
-	const google = new GoogleOAuth(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
+	const clientId = env.GOOGLE_CLIENT_ID;
+	const clientSecret = env.GOOGLE_CLIENT_SECRET;
+
+	if (!clientId || !clientSecret) {
+		return new Response('Google OAuth is not configured.', { status: 500 });
+	}
+
+	const google = new GoogleOAuth(clientId, clientSecret, redirectUri);
 
 	let tokens;
 	try {
